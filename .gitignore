@@ -1,0 +1,42 @@
+# Dependências
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Ambiente
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# WhatsApp
+auth_info/
+*.session
+*.session-*
+
+# Banco de dados
+*.db
+*.sqlite
+assistente.db
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+logs/
+*.log
+pino-*.log
+
+# Build
+dist/
+build/
+out/
