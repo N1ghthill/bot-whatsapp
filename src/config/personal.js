@@ -1,20 +1,18 @@
 const IrvingRuas = {
-  nome: "Irving Ruas",
-  profissao: "Desenvolvedor Full-Stack & Gestor de Tráfego",
-  site: "https://ruas.dev.br",
-  email: "irving@ruas.dev.br",
-  github: "https://github.com/irvingruas",
-  linkedin: "https://linkedin.com/in/irvingruas",
-  
-  sobre: "Desenvolvedor especializado em automações, bots WhatsApp e otimização de fluxos. Trabalho com Node.js, Python e estratégias de growth hacking.",
-  
-  servicos: [
-    "Desenvolvimento de bots WhatsApp",
-    "Automações de marketing",
-    "Gestão de tráfego pago",
-    "Sistemas de CRM personalizados",
-    "APIs e integrações"
-  ]
+    nome: "Irving Ruas",
+    profissao: "Desenvolvedor Full Stack & Analista de Dados",
+    site: "https://ruas.dev.br",
+    email: "irving@ruas.dev.br",
+    servicos: [
+        "Análise de campanhas com Python",
+        "Automação de processos e sistemas",
+        "Desenvolvimento de soluções data-driven",
+        "Desenvolvimento Full Stack"
+    ],
+    formacao: "Estudante de Análise e Desenvolvimento de Sistemas com foco em Data Science",
+    github: "github.com/N1ghthill",
+    localizacao: "Brasil • Trabalho Remoto",
+    objetivo: "Transformar dados em decisões inteligentes e otimizar resultados empresariais"
 };
 
 module.exports = { IrvingRuas };
