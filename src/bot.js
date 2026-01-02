@@ -1,141 +1,130 @@
-const { makeWASocket, DisconnectReason, useMultiFileAuthState } = require('@whiskeysockets/baileys');
-const qrcode = require('qrcode-terminal');
-const pino = require('pino');
-const { handleMessage } = require('./handlers/base.js');
-const database = require('./services/database.js');
+// src/bot.js - HUMANIZADO COMPLETO
 
 require('dotenv').config();
 
-const logger = pino({ level: 'silent' });
+const { makeWASocket, useMultiFileAuthState } = require('@whiskeysockets/baileys');
+const {
+  init, salvarMensagem, obterHistorico, obterContexto,
+  salvarContexto, atualizarNome, obterConversaPorNumero
+} = require('./services/database.js');
 
-// Verificar variáveis de ambiente
-if (!process.env.GROQ_API_KEY) {
-  console.error('❌ ERRO: GROQ_API_KEY não encontrada no .env');
-  console.log('💡 Crie um arquivo .env com: GROQ_API_KEY=sua_chave_aqui');
-  process.exit(1);
+const { queryAI } = require('./services/ai.js');
+const {
+  mensagemBoasVindas, mensagemErroGenerico, mensagemNetworking,
+  detectarNetworking, detectarSaudacao, detectarDespedida
+} = require('./services/templates.js');
+
+function extractText(msg) {
+  if (!msg.message) return '';
+  if (msg.message.conversation) return msg.message.conversation;
+  if (msg.message.extendedTextMessage?.text) return msg.message.extendedTextMessage.text;
+  if (msg.message.ephemeralMessage?.message?.conversation) {
+    return msg.message.ephemeralMessage.message.conversation;
+  }
+  return '';
+}
+
+// DELAY HUMANIZADO
+function delayHumanizado(min = 1200, max = 2800) {
+  const delay = Math.floor(Math.random() * (max - min + 1)) + min;
+  return new Promise(resolve => setTimeout(resolve, delay));
+}
+
+async function capturarContextoAdicional(numero, texto) {
+  const nomeMatch = texto.match(/(meu nome é|sou|chamo-me)\s+(.+)/i);
+  if (nomeMatch) await atualizarNome(numero, nomeMatch[2].trim());
+
+  const empresaMatch = texto.match(/(empresa|trabalho na|da empresa)\s+(.+)/i);
+  if (empresaMatch) {
+    const contexto = await obterContexto(numero);
+    await salvarContexto(numero, { ...contexto, empresa: empresaMatch[2].trim() });
+  }
 }
 
 async function startBot() {
-    console.log('🚀 Iniciando Assistente Irving Ruas...\n');
-    
-    // Inicializar banco de dados
-    try {
-        await database.init();
-        console.log('✅ Banco de dados conectado');
-    } catch (error) {
-        console.error('❌ Erro ao conectar ao banco:', error.message);
+  await init();
+  console.log('🗄️ SQLite OK | RuasBot iniciando...');
+
+  const { state, saveCreds } = await useMultiFileAuthState('./auth_info');
+
+  const sock = makeWASocket({
+    auth: state,
+    syncFullHistory: false,
+    printQRInTerminal: true
+  });
+
+  sock.ev.on('creds.update', saveCreds);
+
+  sock.ev.on('connection.update', ({ connection, qr }) => {
+    if (qr) {
+      console.log('📱 QR Code RuasBot:');
+      require('qrcode-terminal').generate(qr, { small: true });
     }
-    
-    const { state, saveCreds } = await useMultiFileAuthState('./auth_info');
-    
-    const sock = makeWASocket({
-        logger,
-        auth: state,
-        printQRInTerminal: false,
-        browser: ['Ubuntu', 'Chrome', '20.0.0'],
-        syncFullHistory: false,
-        markOnlineOnConnect: true,
-        connectTimeoutMs: 60000,
-        keepAliveIntervalMs: 25000
-    });
+    if (connection === 'open') console.log('✅ RuasBot online - ruas.dev.br');
+    if (connection === 'close') {
+      console.log('🔄 Reconectando em 5s...');
+      setTimeout(startBot, 5000);
+    }
+  });
 
-    sock.ev.on('creds.update', saveCreds);
+  sock.ev.on('messages.upsert', async ({ messages }) => {
+    const msg = messages[0];
+    if (!msg?.message || !msg.key?.remoteJid || msg.key.fromMe) return;
 
-    sock.ev.on('connection.update', async (update) => {
-        const { connection, lastDisconnect, qr } = update;
-        
-        if (qr) {
-            console.log('\n📱 ESCANEIE O QR CODE ABAIXO COM O WHATSAPP:');
-            console.log('==============================================');
-            qrcode.generate(qr, { small: true });
-            console.log('==============================================\n');
+    const from = msg.key.remoteJid;
+    const texto = extractText(msg).trim();
+    if (!texto) return;
+
+    console.log(`📩 ${from.substring(0, 15)}: ${texto.substring(0, 60)}...`);
+
+    try {
+      await salvarMensagem(from, 'usuario', texto);
+      await capturarContextoAdicional(from, texto);
+
+      const contexto = await obterContexto(from);
+      const historico = await obterHistorico(from, 12);
+      const conversa = await obterConversaPorNumero(from);
+      const nome = conversa?.nome || contexto?.nome || null;
+
+      // Templates com delay natural
+      if (detectarSaudacao(texto) && historico.length <= 2) {
+        const resposta = mensagemBoasVindas(nome);
+        await sock.sendMessage(from, { text: resposta });
+        await salvarMensagem(from, 'bot', resposta);
+        return;
+      }
+
+      if (detectarDespedida(texto)) {
+        const resposta = '[RuasBot] Valeu! Qualquer coisa técnica é só chamar.';
+        await sock.sendMessage(from, { text: resposta });
+        await salvarMensagem(from, 'bot', resposta);
+        return;
+      }
+
+      if (detectarNetworking(texto)) {
+        const netResponse = mensagemNetworking(texto);
+        if (netResponse) {
+          await sock.sendMessage(from, { text: netResponse });
+          await salvarMensagem(from, 'bot', netResponse);
+          return;
         }
-        
-        if (connection === 'close') {
-            const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
-            console.log('📡 Conexão fechada. Reconectando em 5 segundos...');
-            if (shouldReconnect) {
-                setTimeout(startBot, 5000);
-            }
-        } else if (connection === 'open') {
-            console.log('✅ CONECTADO AO WHATSAPP!');
-            console.log('🤖 Assistente Irving Ruas está ONLINE\n');
-            
-            // Notificar dono se configurado
-            if (process.env.OWNER_NUMBER) {
-                try {
-                    await sock.sendMessage(process.env.OWNER_NUMBER, {
-                        text: `✅ *Assistente Conectado!*\n\nData: ${new Date().toLocaleDateString('pt-BR')}\nHora: ${new Date().toLocaleTimeString('pt-BR')}\nStatus: Pronto para uso`
-                    });
-                    console.log('📨 Notificação enviada ao dono');
-                } catch (error) {
-                    console.log('ℹ️ Dono não configurado ou erro na notificação');
-                }
-            }
-        }
-    });
+      }
 
-    sock.ev.on('messages.upsert', async ({ messages, type }) => {
-        if (type !== 'notify') return;
-        
-        const msg = messages[0];
-        if (!msg.message || msg.key.fromMe) return;
+      // IA principal + delay humanizado
+      const resposta = await queryAI(texto, from, historico, { ...contexto, nome });
+      await delayHumanizado(1200, 2200); // 1.2-2.2s natural
+      await sock.sendMessage(from, { text: resposta });
+      await salvarMensagem(from, 'bot', resposta);
 
-        const from = msg.key.remoteJid;
-        const text = msg.message.conversation || 
-                     msg.message.extendedTextMessage?.text || 
-                     msg.message.imageMessage?.caption || 
-                     '';
-
-        if (!text.trim() && !msg.message.imageMessage) {
-            await sock.sendMessage(from, { text: '📷 Recebi sua imagem! Para melhor atendimento, descreva o que precisa.' });
-            return;
-        }
-
-        try {
-            await handleMessage(sock, msg, text, from);
-        } catch (error) {
-            console.error('❌ Erro ao processar mensagem:', error);
-            try {
-                await sock.sendMessage(from, { 
-                    text: '⚠️ Desculpe, tive um problema técnico. Pode repetir sua mensagem?' 
-                });
-            } catch (e) {
-                console.error('Erro ao enviar mensagem de erro:', e);
-            }
-        }
-    });
-
-    // Monitorar erros de conexão
-    sock.ev.on('connection.update', (update) => {
-        if (update.error) {
-            console.error('❌ Erro de conexão:', update.error);
-        }
-    });
-
-    // Lidar com desconexões inesperadas
-    process.on('uncaughtException', (error) => {
-        console.error('⚠️ Exceção não tratada:', error);
-    });
-
-    process.on('unhandledRejection', (reason, promise) => {
-        console.error('⚠️ Promessa rejeitada:', reason);
-    });
+    } catch (error) {
+      console.error('❌ Erro:', error);
+      await delayHumanizado(800, 1500);
+      const fallback = mensagemErroGenerico();
+      await sock.sendMessage(from, { text: fallback });
+      await salvarMensagem(from, 'bot', fallback);
+    }
+  });
 }
 
-// Iniciar o bot
+console.log('🚀 RuasBot iniciando...');
 startBot();
-
-// Encerramento gracioso
-process.on('SIGINT', async () => {
-    console.log('\n\n👋 Encerrando assistente graciosamente...');
-    try {
-        if (database.db) {
-            await database.db.close();
-            console.log('✅ Banco de dados fechado');
-        }
-    } catch (error) {
-        console.error('Erro ao fechar banco:', error);
-    }
-    process.exit(0);
-});

@@ -1,46 +1,27 @@
 {
-  "name": "assistente-whatsapp",
-  "version": "1.0.0",
-  "description": "Assistente pessoal de WhatsApp com IA integrada para Irving Ruas",
+  "name": "botassist-whatsapp",
+  "version": "3.1.0",
+  "description": "BotAssist - Assistente WhatsApp IA Irving Ruas",
   "main": "src/bot.js",
-  "type": "commonjs",
   "scripts": {
     "start": "node src/bot.js",
-    "dev": "node src/bot.js",
-    "test": "echo \"No tests yet\" && exit 0",
-    "lint": "echo \"No linter configured\"",
-    "format": "prettier --write 'src/**/*.js'",
-    "backup": "cp assistente.db assistente.backup.db"
+    "dev": "NODE_ENV=development node src/bot.js",
+    "reset": "rm -rf auth_info && echo 'Reescanear QR'",
+    "backup": "cp assistente.db assistente.backup.db",
+    "clean": "rm -rf auth_info node_modules && npm i"
   },
-  "keywords": [
-    "whatsapp",
-    "assistant",
-    "ai",
-    "groq",
-    "bot",
-    "automation"
-  ],
-  "author": "Irving Ruas <irving@ruas.dev.br>",
-  "license": "ISC",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/N1ghthill/bot-whatsapp.git"
-  },
-  "bugs": {
-    "url": "https://github.com/N1ghthill/bot-whatsapp/issues"
-  },
-  "homepage": "https://github.com/N1ghthill/bot-whatsapp#readme",
   "dependencies": {
     "@whiskeysockets/baileys": "^7.0.0-rc.9",
+    "dotenv": "^16.6.1",
     "groq-sdk": "^0.7.0",
-    "dotenv": "^16.4.7",
-    "pino": "^10.1.0",
     "qrcode-terminal": "^0.12.0",
-    "sqlite3": "^5.1.7",
-    "sqlite": "^5.1.1"
+    "sqlite": "^5.1.1",
+    "sqlite3": "^5.1.7"
   },
-  "engines": {
-    "node": ">=20.0.0",
-    "npm": ">=9.0.0"
+  "author": "Irving Ruas <irving@ruas.dev.br>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/N1ghthill/BotAssist.git"
   }
 }
