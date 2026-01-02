@@ -77,3 +77,26 @@ dotenv + qrcode         # Utils
 ⚡ <50ms consulta SQLite
 ⚡ 250 tokens resposta máxima
 ⚡ 100% uptime (reconecta auto)
+
+## 🤝 Licença
+
+MIT License - veja LICENSE
+
+## 🙌 Contribuições
+
+1. Fork o projeto
+
+2. Crie branch feat/nova-funcionalidade
+
+3. Commit com git commit -m "feat: descrição"
+
+4. Push e abra Pull Request
+
+## 📞 Suporte
+
+Issues: github.com/N1ghthill/BotAssist/issues
+
+Demo: Veja repositório original aqui
+
+Desenvolvido por Irving Ruas
+ruas.dev.br | GitHub
